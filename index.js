@@ -1,7 +1,22 @@
+document.addEventListener('DOMContentLoaded', function() {
+  const playButton = document.getElementById('playButton');
+  
+  if (playButton) {
+      playButton.addEventListener('click', function() {
+          window.location.href = 'game.html'; // Redirects to game.html
+      });
+  }
+});
+
+
 const canvas = document.querySelector("canvas");
 const c = canvas.getContext("2d"); // we are using c for context , it is the same thing
-
+const pacmanSound = document.getElementById("pacmanSoundtrack");
 const scoreEl = document.querySelector("#scoreEl");
+
+let startTime = null;
+const delayDuration = 4000;
+let isDelayOver = false;
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -17,7 +32,7 @@ class Boundary {
     this.image = image;
   }
   draw() {
-    // // iam drawing my map with this function
+     // jam duke vizatuar mapin me kte funksion
     // c.fillStyle = "blue"; // setting the color of the boundaries
     // c.fillRect(this.position.x, this.position.y, this.width, this.height); // creating the dimensions of the boundaries
     c.drawImage(this.image, this.position.x, this.position.y);
@@ -29,36 +44,51 @@ class Pacman {
     this.position = position;
     this.velocity = velocity;
     this.radius = 15;
+    this.radians = .75
+    this.openRate = 0.12
+    this.rotation =0
   }
   //krijimi i pacmanit , pozicioni dhe dimensionet e tij
   draw() {
+    c.save()
+    c.translate(this.position.x , this.position.y)
+    c.rotate(this.rotation)
+    c.translate(-this.position.x , -this.position.y)
     c.beginPath();
-    c.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    c.arc(this.position.x, this.position.y, this.radius, this.radians, Math.PI * 2 - this.radians);
+    c.lineTo(this.position.x, this.position.y)
     c.fillStyle = "yellow";
     c.fill();
     c.closePath();
+    c.restore()
   }
 
   update() {
     this.draw();
     this.position.x += this.velocity.x;
     this.position.y += this.velocity.y;
+    if (this.radians < 0 || this.radians > .75 )this.openRate = -this.openRate
+
+    this.radians += this.openRate
   }
 }
 
 class Ghost {
+  static speed = 2 //bejme set nje default ghost speed , ne menyre qe mos te kemi nevoje ta vendosim ne menyre manuale me vone 
   constructor({ position, velocity, color = "red" }) {
     this.position = position;
     this.velocity = velocity;
     this.radius = 15;
     this.color = color;
     this.prevCollisions = [] //shtojme per te ruajtur collisions ne menyre qe te dallojme kur ghost leviz dhe i hapet nje rruge 
+    this.speed = 1.5
+    this.scared = false 
   }
 
   draw() {
     c.beginPath();
     c.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
-    c.fillStyle = this.color;
+    c.fillStyle = this.scared ? 'blue' : this.color;
     c.fill();
     c.closePath();
   }
@@ -86,18 +116,69 @@ class Pellet {
   }
 }
 
+class PowerUp {
+  constructor({ position }) {
+    this.position = position;
+    this.radius = 8;
+  }
+
+  draw() {
+    c.beginPath();
+    c.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+    c.fillStyle = "white";
+    c.fill();
+    c.closePath();
+  }
+}
+
+//krijimi i arrays ku do ruhen pellets/ghosts/boundaries/powerUps
 const pellets = [];
 const boundaries = [];
+const powerUps = []
+
 const ghosts = [
   new Ghost({
     position: {
-      x: Boundary.width * 6 + Boundary.width / 2,
+      x: Boundary.width * 9 + Boundary.width / 2,
       y: Boundary.height + Boundary.height / 2,
     },
     velocity: {
-      x: 5,
+      x: Ghost.speed,
       y: 0,
     },
+  }),
+  new Ghost({
+    position: {
+      x: Boundary.width * 11 + Boundary.width / 2,
+      y: Boundary.height * 3  + Boundary.height / 2,
+    },
+    velocity: {
+      x: Ghost.speed,
+      y: 0,
+    },
+    color: 'pink'
+  }),
+  new Ghost({
+    position: {
+      x: Boundary.width * 9 + Boundary.width / 2,
+      y: Boundary.height * 5+ Boundary.height / 2,
+    },
+    velocity: {
+      x: Ghost.speed,
+      y: 0,
+    },
+    color: 'cyan'
+  }),
+  new Ghost({
+    position: {
+      x: Boundary.width * 7 + Boundary.width / 2,
+      y: Boundary.height* 9 + Boundary.height / 2,
+    },
+    velocity: {
+      x: Ghost.speed,
+      y: 0,
+    },
+    color: 'orange'
   }),
 ];
 
@@ -120,19 +201,20 @@ let score = 0; //game score
 
 // Game Map
 const map = [
-  ["1", "-", "-", "-", "-", "-", "-", "-", "-", "-", "2"],
-  ["|", ".", ".", ".", ".", ".", ".", ".", ".", ".", "|"],
-  ["|", ".", "b", ".", "[", "7", "]", ".", "b", ".", "|"],
-  ["|", ".", ".", ".", ".", "_", ".", ".", ".", ".", "|"],
-  ["|", ".", "[", "]", ".", ".", ".", "[", "]", ".", "|"],
-  ["|", ".", ".", ".", ".", "^", ".", ".", ".", ".", "|"],
-  ["|", ".", "b", ".", "[", "+", "]", ".", "b", ".", "|"],
-  ["|", ".", ".", ".", ".", "_", ".", ".", ".", ".", "|"],
-  ["|", ".", "[", "]", ".", ".", ".", "[", "]", ".", "|"],
-  ["|", ".", ".", ".", ".", "^", ".", ".", ".", ".", "|"],
-  ["|", ".", "b", ".", "[", "5", "]", ".", "b", ".", "|"],
-  ["|", ".", ".", ".", ".", ".", ".", ".", ".", ".", "|"],
-  ["4", "-", "-", "-", "-", "-", "-", "-", "-", "-", "3"],
+  ["1", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-","-", "-", "-", "-", "-", "2"],
+  ["|", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".",".", ".", ".", ".", ".", "|"],
+  ["|", ".", "b", ".", "[", "7", "]", ".", "1", "-", "2", ".", "^", ".", "b", ".", "1", "-", "]", ".", "1", "-", "2", ".", "1","-", "]", ".", "^", ".", "|"],
+  ["|", ".", ".", ".", ".", "|", ".", ".", "|", "b", "|", ".", "|", ".", ".", ".", "|", "p", ".", ".", "|", "b", "|", ".", "|","p", ".", ".", "|", ".", "|"],
+  ["|", ".", "[", "]", ".", "|", ".", ".", "|", ".", "|", ".", "|", ".", "b", ".", "|", "-", "]", ".", "|", "", "|", ".", "4","-", "2", ".",  "_", ".", "|"],
+  ["|", ".", ".", ".", ".", "|", ".", ".", "|", "p", "|", ".", "|", ".", ".", ".", "|", ".", ".", ".", "|", ".", "|", ".", ".",".", "|", ".", ".", ".", "|"],
+  ["|", ".", "b", ".", ".", "_", ".", ".","_", ".", "_", ".", "4", "-", "]", ".", "4", "-", "]", ".", "_", ".", "_", ".", "[","-", "3", ".", "b", ".", "|"],
+  ["|", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".",".", ".", ".", ".", ".", "|"],
+  ["|", ".", "[", "]", ".", "^", ".", "[", "]", ".", "b", ".", "^", ".", "b", ".", "[", "-", "-", "]", ".", "[", "-", "2", ".","[", "-", "-", "]", ".", "|"],
+  ["|", ".", ".", ".", ".", "|", ".", ".", ".", ".", ".", ".", "|", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "|", ".",".", ".", ".", ".", ".", "|"],
+  ["|", ".", "b", ".", "[", "5", "]", ".", "b", ".", "b", ".", "_", ".", "b", ".", "[", "-", "-", "]", ".", "[", "-", "3", ".","b", ".", "[", "]", ".", "|"],
+  ["|", "p", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", ".", "p", ".", ".", ".", ".", ".", ".", ".", ".", ".",".", ".", ".", ".", ".", "|"],
+  ["4", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-","3"],
+
 ];
 
 //replacing boundaries with images
@@ -320,6 +402,16 @@ map.forEach((row, i) => {
           })
         );
         break;
+        case "p":
+          powerUps.push(
+            new PowerUp({
+              position: {
+                x: j * Boundary.width + Boundary.width / 2,
+                y: i * Boundary.height + Boundary.height / 2,
+              },
+            })
+          );
+          break;
     }
   });
 });
@@ -336,31 +428,36 @@ const pacman = new Pacman({
 });
 
 function circleCollidesWithRectangle({ circle, rectangle }) {
+  const padding = Boundary.width / 2 - circle.radius - 1.5  
   return (
     //circle = pacman , rectangle = boundary
     //velocity i pacman , na krijon mundesine qe te ndalojme perpara se te perplasemi me boundary, pa qene nevoja ta bejme 0
     //position.x/y na jep qendren e pacmanit , pacman.radius na jep anen, majtas/djathtas , larte/poshte
     //if statement per pjesen e siperme te pacmanit , nese eshte <= se pjesa e poshtme e boundary
     circle.position.y - circle.radius + circle.velocity.y <=
-      rectangle.position.y + rectangle.height &&
+      rectangle.position.y + rectangle.height + padding &&
     // condition per pjesen e djathte te circleit kur has pjesen e majte te rectangle
     circle.position.x + circle.radius + circle.velocity.x >=
-      rectangle.position.x &&
+      rectangle.position.x  - padding&&
     // condition per pjesen e poshtme te circleit kur has pjesen e siperme te rectangle
     circle.position.y + circle.radius + circle.velocity.y >=
-      rectangle.position.y &&
+      rectangle.position.y  - padding &&
     // condition per pjesen e majte  te circleit kur has pjesen e djathte te rectangle
     circle.position.x - circle.radius + circle.velocity.x <=
-      rectangle.position.x + rectangle.width
+      rectangle.position.x + rectangle.width + padding
   );
 }
 
 let lastKey = ""; // deklarojme variablen qe do perdorim brenda if-statement per key pressing
 
+
+let animationId //krijojme kte animation id , te cilin e marrim me poshte , me ane te requestAnimationFrame , 
+                // do e perdorim per te dalluar kur ka nje collision mes pacmanit dhe ghost 
+
 //krijimi i animation , pastrimi i trail-line qe krijon nga mbrapa ne levizje
 
 function animate() {
-  requestAnimationFrame(animate);
+  animationId = requestAnimationFrame(animate);
   c.clearRect(0, 0, canvas.width, canvas.height);
 
   //condition lastKey , qe do te na duhet per te perdorur me shume se nje key njekohesisht
@@ -452,8 +549,63 @@ function animate() {
     }
   }
 
+  //detect collisions between ghosts and player 
+  for (let i = ghosts.length - 1; 0 <= i; i--) {
+    const ghost = ghosts[i]
+      //ghost touches player 
+      if (
+        Math.hypot(
+          ghost.position.x - pacman.position.x,
+          ghost.position.y - pacman.position.y
+        ) <
+        ghost.radius + pacman.radius
+      ){
+
+        if(ghost.scared ){
+          ghosts.splice(i, 1)
+        }else {
+          cancelAnimationFrame(animationId)
+          console.log('you lose ')
+        }
+
+      }
+  }
+
+
+  //win condition goes here 
+  if(pellets.length === 0){
+     console.log('you win')
+     cancelAnimationFrame(animationId)
+  }
+
+
+  //powerUps go 
+  for (let i = powerUps.length - 1; 0 <= i; i--) {
+    const powerUp  = powerUps[i]
+    powerUp.draw()
+
+    //pacman collides me powerup 
+    if (
+      Math.hypot(
+        powerUp.position.x - pacman.position.x,
+        powerUp.position.y - pacman.position.y
+      ) <
+      powerUp.radius + pacman.radius
+    ){
+      powerUps.splice(i, 1);
+
+      //make ghosts scared 
+      ghosts.forEach(ghost => {
+        ghost.scared = true 
+        setTimeout(()=> {
+          ghost.scared = false 
+        }, 4000)
+      })
+    }
+  }
+
   //pellet touching
-  for (let i = pellets.length - 1; 0 < i; i--) {
+  for (let i = pellets.length - 1; 0 <= i; i--) {
     const pellet = pellets[i];
     pellet.draw();
 
@@ -489,86 +641,79 @@ function animate() {
 
   pacman.update();
 
+
   ghosts.forEach((ghost) => {
-    ghost.update();
-
-    //collision detecion code for our ghosts
+    let newVelocity = { x: ghost.velocity.x, y: ghost.velocity.y };
+  
+    // Check for collisions in each direction
     const collisions = [];
-
+  
     boundaries.forEach((boundary) => {
-      if (
-        !collisions.includes('right') &&
-        circleCollidesWithRectangle({
-          circle: {
-            ...ghost,
-            velocity: {
-              x: 5,
-              y: 0,
+      ['right', 'left', 'up', 'down'].forEach((direction) => {
+        if (!collisions.includes(direction)) {
+          const velocityCheck = {
+            right: { x: ghost.speed, y: 0 },
+            left: { x: -ghost.speed, y: 0 },
+            up: { x: 0, y: -ghost.speed },
+            down: { x: 0, y: ghost.speed }
+          }[direction];
+  
+          if (circleCollidesWithRectangle({
+            circle: {
+              ...ghost,
+              velocity: velocityCheck
             },
-          },
-          rectangle: boundary,
-        })
-      ) {   
-        collisions.push("right");
-      }
-
-      if (
-        !collisions.includes('left') &&
-        circleCollidesWithRectangle({
-          circle: {
-            ...ghost,
-            velocity: {
-              x: -5,
-              y: 0,
-            },
-          },
-          rectangle: boundary,
-        })
-      ) {
-        collisions.push("left");
-      }
-
-      if (
-        !collisions.includes('up') &&
-        circleCollidesWithRectangle({
-          circle: {
-            ...ghost,
-            velocity: {
-              x: 0,
-              y: -5,
-            },
-          },
-          rectangle: boundary,
-        })
-      ) {
-        collisions.push("up");
-      }
-
-      if (
-        !collisions.includes('down') &&
-        circleCollidesWithRectangle({
-          circle: {
-            ...ghost,
-            velocity: {
-              x: 0,
-              y: 5,
-            },
-          },
-          rectangle: boundary,
-        })
-      ) {
-        collisions.push("down");
-      }
+            rectangle: boundary
+          })) {
+            collisions.push(direction);
+          }
+        }
+      });
     });
-    if(collisions.length > ghost.prevCollisions.length)
-    ghost.prevCollisions = collisions
-
-    if(collisions !== ghost.prevCollisions){
-      
+  
+    // If current direction is blocked, choose a new direction
+    if (
+      (ghost.velocity.x > 0 && collisions.includes('right')) ||
+      (ghost.velocity.x < 0 && collisions.includes('left')) ||
+      (ghost.velocity.y < 0 && collisions.includes('up')) ||
+      (ghost.velocity.y > 0 && collisions.includes('down'))
+    ) {
+      const availableDirections = ['right', 'left', 'up', 'down'].filter(dir => !collisions.includes(dir));
+      if (availableDirections.length > 0) {
+        const newDirection = availableDirections[Math.floor(Math.random() * availableDirections.length)];
+        newVelocity = {
+          right: { x: ghost.speed, y: 0 },
+          left: { x: -ghost.speed, y: 0 },
+          up: { x: 0, y: -ghost.speed },
+          down: { x: 0, y: ghost.speed }
+        }[newDirection];
+      } else {
+ 
+        newVelocity = { x: 0, y: 0 };
+      }
     }
+  
+    // Update ghost velocity and position
+    ghost.velocity = newVelocity;
+    ghost.position.x += ghost.velocity.x;
+    ghost.position.y += ghost.velocity.y;
+  
+    ghost.update();
   });
-}
 
+
+
+
+
+  
+  if(pacman.velocity.x  > 0 )pacman.rotation = 0 
+  else if(pacman.velocity.x  < 0 )pacman.rotation = Math.PI 
+  else if(pacman.velocity.y  > 0 )pacman.rotation = Math.PI /2 
+  else if(pacman.velocity.y  < 0 )pacman.rotation = Math.PI * 1.5 
+
+
+}
+//this is the end of animate 
 animate();
 
 // krijimi i levizjeve te pacman me ane te user input kur klikojme nje key

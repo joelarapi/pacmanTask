@@ -1,0 +1,62 @@
+body {
+  margin: 0;
+  background-color: black;
+  padding: 10px 20px;
+  font-family: sans-serif;
+  color: white;
+}
+
+nav {
+  background-color: #333;
+  padding: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+nav a {
+  color: white;
+  text-decoration: none;
+  font-size: 16px;
+  margin: 0 15px;
+}
+nav a:hover {
+  color: yellow;
+}
+
+.container{
+  width: 100vw;
+  height: 100vh;
+  background-image: url('https://cdn.pixabay.com/photo/2022/02/20/10/17/pacman-7024232_1280.jpg');
+
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-position: center center;
+    background-color: #f0f0f0;
+    display: flex;
+    justify-content: center; 
+    align-items: center;
+}
+
+.menuBttns{
+margin-left: 30px;
+border: solid 5px yellow;
+border-radius: 8px;
+background-color: orange;
+color: yellow;
+padding: 12px 10px;
+width: 150px;
+margin-top: 20px;
+}
+
+.headerText{
+  color: yellow;
+  font-size: 84px;
+  font-family: "New Amsterdam", sans-serif;
+}
+
+.bttnContainer{
+  display: flex;
+  flex-direction: column;
+}
+
